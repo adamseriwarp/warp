@@ -30,7 +30,7 @@ def check_password():
         """Checks whether a password entered by the user is correct."""
         # Get password from secrets, fallback to default for local development
         try:
-            correct_password = st.secrets.get("password", "W@rp123!")
+            correct_password = st.secrets.get("app_password", "W@rp123!")
         except:
             correct_password = "W@rp123!"
 
