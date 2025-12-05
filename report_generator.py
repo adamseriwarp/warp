@@ -56,16 +56,15 @@ def load_and_process_data(carrier_name, weeks):
     """
     conn = get_db_connection()
 
-    # Build dynamic SQL query with carrier and week filters
-    # This loads ONLY the data we need instead of everything
-    week_list = ','.join(map(str, weeks))
+    # Build dynamic SQL query with carrier filter
+    # Note: We filter by carrier in SQL, but filter by weeks in Python
+    # This is because MySQL WEEK() and Python isocalendar().week use different systems
 
     # Use parameterized query to prevent SQL injection
-    query = f"""
+    query = """
         SELECT *
         FROM otp_reports
         WHERE LOWER(carrierName) = LOWER(%(carrier_name)s)
-        AND WEEK(STR_TO_DATE(pickWindowFrom, '%%m/%%d/%%Y %%H:%%i:%%s'), 3) IN ({week_list})
         AND STR_TO_DATE(pickWindowFrom, '%%m/%%d/%%Y %%H:%%i:%%s') >= '2025-01-01'
         ORDER BY id DESC
     """
@@ -98,10 +97,13 @@ def load_and_process_data(carrier_name, weeks):
     # Add week number
     df['week_number'] = df['pickWindowFrom_dt'].dt.isocalendar().week
 
-    # Data is already filtered by SQL query, just add lowercase column for consistency
-    df['carrierName_lower'] = df['carrierName'].str.lower()
+    # Filter for selected weeks (carrier already filtered in SQL)
+    df_filtered = df[df['week_number'].isin(weeks)].copy()
 
-    return df
+    # Add lowercase column for consistency
+    df_filtered['carrierName_lower'] = df_filtered['carrierName'].str.lower()
+
+    return df_filtered
 
 def calculate_otp(row):
     """Calculate On Time Pickup"""
