@@ -74,6 +74,9 @@ def load_and_process_data(carrier_name, weeks):
 
     conn.close()
 
+    # Debug: Show how many rows were loaded
+    print(f"DEBUG: Loaded {len(df)} rows for carrier '{carrier_name}'")
+
     # Convert date fields
     df['pickWindowFrom_dt'] = pd.to_datetime(df['pickWindowFrom'], errors='coerce')
     df['dropWindowFrom_dt'] = pd.to_datetime(df['dropWindowFrom'], errors='coerce')
@@ -97,8 +100,16 @@ def load_and_process_data(carrier_name, weeks):
     # Add week number
     df['week_number'] = df['pickWindowFrom_dt'].dt.isocalendar().week
 
+    # Debug: Show week distribution
+    if len(df) > 0:
+        print(f"DEBUG: Week distribution: {df['week_number'].value_counts().to_dict()}")
+        print(f"DEBUG: Filtering for weeks: {weeks}")
+
     # Filter for selected weeks (carrier already filtered in SQL)
     df_filtered = df[df['week_number'].isin(weeks)].copy()
+
+    # Debug: Show filtered results
+    print(f"DEBUG: After week filtering: {len(df_filtered)} rows")
 
     # Add lowercase column for consistency
     df_filtered['carrierName_lower'] = df_filtered['carrierName'].str.lower()
