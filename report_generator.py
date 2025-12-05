@@ -46,26 +46,35 @@ def get_db_connection():
 def load_and_process_data(carrier_name, weeks):
     """
     Load data from database and process it
-    
+
     Args:
         carrier_name: Name of the carrier to filter
         weeks: List of week numbers to analyze
-        
+
     Returns:
         Processed DataFrame
     """
     conn = get_db_connection()
-    
-    # Query data
-    df = pd.read_sql("""
+
+    # Build dynamic SQL query with carrier and week filters
+    # This loads ONLY the data we need instead of everything
+    week_list = ','.join(map(str, weeks))
+
+    # Use parameterized query to prevent SQL injection
+    query = f"""
         SELECT *
         FROM otp_reports
-        WHERE STR_TO_DATE(pickWindowFrom, '%m/%d/%Y %H:%i:%s') >= '2025-01-01'
+        WHERE LOWER(carrierName) = LOWER(%(carrier_name)s)
+        AND WEEK(STR_TO_DATE(pickWindowFrom, '%%m/%%d/%%Y %%H:%%i:%%s'), 3) IN ({week_list})
+        AND STR_TO_DATE(pickWindowFrom, '%%m/%%d/%%Y %%H:%%i:%%s') >= '2025-01-01'
         ORDER BY id DESC
-    """, conn)
-    
+    """
+
+    # Execute query with parameters
+    df = pd.read_sql(query, conn, params={'carrier_name': carrier_name})
+
     conn.close()
-    
+
     # Convert date fields
     df['pickWindowFrom_dt'] = pd.to_datetime(df['pickWindowFrom'], errors='coerce')
     df['dropWindowFrom_dt'] = pd.to_datetime(df['dropWindowFrom'], errors='coerce')
@@ -75,29 +84,24 @@ def load_and_process_data(carrier_name, weeks):
     df['pickWindowTo_dt'] = pd.to_datetime(df['pickWindowTo'], errors='coerce')
     df['dropTimeArrived_dt'] = pd.to_datetime(df['dropTimeArrived'], errors='coerce')
     df['dropWindowTo_dt'] = pd.to_datetime(df['dropWindowTo'], errors='coerce')
-    
+
     # Calculate OTP and OTD
     df['OTP'] = df.apply(calculate_otp, axis=1)
     df['OTD'] = df.apply(calculate_otd, axis=1)
-    
+
     # Add deduplication logic
     df = add_deduplication_flags(df)
-    
+
     # Impute missing delay codes
     df = impute_delay_codes(df)
-    
+
     # Add week number
     df['week_number'] = df['pickWindowFrom_dt'].dt.isocalendar().week
-    
-    # Filter for selected weeks
-    df_filtered = df[df['week_number'].isin(weeks)].copy()
-    
-    # Filter for selected carrier (case-insensitive)
-    df_filtered['carrierName_lower'] = df_filtered['carrierName'].str.lower()
-    carrier_lower = carrier_name.lower()
-    df_carrier = df_filtered[df_filtered['carrierName_lower'] == carrier_lower].copy()
-    
-    return df_carrier
+
+    # Data is already filtered by SQL query, just add lowercase column for consistency
+    df['carrierName_lower'] = df['carrierName'].str.lower()
+
+    return df
 
 def calculate_otp(row):
     """Calculate On Time Pickup"""
