@@ -65,7 +65,7 @@ def load_and_process_data(carrier_name, weeks):
         SELECT *
         FROM otp_reports
         WHERE LOWER(carrierName) = LOWER(%(carrier_name)s)
-        AND STR_TO_DATE(pickWindowFrom, '%%m/%%d/%%Y %%H:%%i:%%s') >= '2025-01-01'
+        AND STR_TO_DATE(pickWindowFrom, '%m/%d/%Y %H:%i:%s') >= '2025-01-01'
         ORDER BY id DESC
     """
 
