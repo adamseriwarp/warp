@@ -1,14 +1,19 @@
-import streamlit as st
-import pandas as pd
-import mysql.connector
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
-import datetime
-from matplotlib.backends.backend_pdf import PdfPages
-import warnings
-warnings.filterwarnings('ignore')
-import io
+try:
+    import streamlit as st
+    import pandas as pd
+    import mysql.connector
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('Agg')
+    import datetime
+    from matplotlib.backends.backend_pdf import PdfPages
+    import warnings
+    warnings.filterwarnings('ignore')
+    import io
+except Exception as e:
+    import streamlit as st
+    st.error(f"Import error: {str(e)}")
+    st.stop()
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -89,12 +94,27 @@ st.sidebar.header("⚙️ Report Settings")
 @st.cache_resource
 def get_db_connection():
     """Create database connection (cached)"""
-    return mysql.connector.connect(
-        host='datahub-mysql.wearewarp.link',
-        user='datahub-read',
-        password='warpdbhub2',
-        database='datahub'
-    )
+    try:
+        # Try to use secrets first
+        if "database" in st.secrets:
+            db_config = st.secrets["database"]
+            return mysql.connector.connect(
+                host=db_config["host"],
+                user=db_config["user"],
+                password=db_config["password"],
+                database=db_config["database"]
+            )
+        else:
+            # Fallback to hardcoded values
+            return mysql.connector.connect(
+                host='datahub-mysql.wearewarp.link',
+                user='datahub-read',
+                password='warpdbhub2',
+                database='datahub'
+            )
+    except Exception as e:
+        st.error(f"Database connection error: {str(e)}")
+        raise
 
 # Load available carriers
 @st.cache_data(ttl=3600)  # Cache for 1 hour
