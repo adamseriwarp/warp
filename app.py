@@ -20,6 +20,61 @@ st.set_page_config(
 )
 
 # ============================================================================
+# PASSWORD PROTECTION
+# ============================================================================
+
+def check_password():
+    """Returns `True` if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        # Get password from secrets, fallback to default for local development
+        try:
+            correct_password = st.secrets.get("password", "W@rp123!")
+        except:
+            correct_password = "W@rp123!"
+
+        if st.session_state["password"] == correct_password:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Don't store password
+        else:
+            st.session_state["password_correct"] = False
+
+    # First run, show input for password
+    if "password_correct" not in st.session_state:
+        st.title("🚚 Carrier Performance Reports")
+        st.markdown("### 🔒 Authentication Required")
+        st.text_input(
+            "Please enter the password to access the app:",
+            type="password",
+            on_change=password_entered,
+            key="password"
+        )
+        st.info("💡 Contact your administrator if you don't have the password.")
+        return False
+
+    # Password not correct, show input + error
+    elif not st.session_state["password_correct"]:
+        st.title("🚚 Carrier Performance Reports")
+        st.markdown("### 🔒 Authentication Required")
+        st.text_input(
+            "Please enter the password to access the app:",
+            type="password",
+            on_change=password_entered,
+            key="password"
+        )
+        st.error("❌ Incorrect password. Please try again.")
+        return False
+
+    # Password correct
+    else:
+        return True
+
+# Check password before showing the app
+if not check_password():
+    st.stop()
+
+# ============================================================================
 # TITLE AND DESCRIPTION
 # ============================================================================
 st.title("🚚 Carrier Performance Report Generator")
