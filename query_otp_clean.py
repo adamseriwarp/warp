@@ -585,6 +585,18 @@ WARP_TEXT = '#212121'   # Dark text for readability
 PIE_COLORS = ['#E15759', '#F28E2B', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1',
               '#4E79A7', '#FF9DA7', '#9C755F', '#BAB0AC', '#A0CBE8', '#FFBE7D']
 
+# Helper function to add logo footer to each page
+def add_logo_footer(fig):
+    """Add Warp logo as a small footer to the page"""
+    try:
+        logo = plt.imread('/Users/adamseri/Desktop/Code/wearewarp/dashboard/warp_logo.png')
+        # Create axes for logo positioning (centered, bottom of page, smaller)
+        ax_logo = fig.add_axes([0.42, 0.02, 0.16, 0.06])  # [left, bottom, width, height]
+        ax_logo.imshow(logo)
+        ax_logo.axis('off')
+    except Exception as e:
+        print(f"⚠️  Warning: Could not load logo footer: {e}")
+
 # Create PDF
 pdf_pages = PdfPages(OUTPUT_PDF)
 
@@ -755,6 +767,15 @@ try:
     fig.text(0.5, 0.82, TARGET_CARRIER,
              ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
+    # Add footnotes
+    fig.text(0.5, 0.15, '*OTP: Driver arrived after scheduled pickup window',
+             ha='center', fontsize=9, color=WARP_TEXT)
+    fig.text(0.5, 0.12, '*OTD: Driver arrived after scheduled dropoff window',
+             ha='center', fontsize=9, color=WARP_TEXT)
+
+    # Add logo footer
+    add_logo_footer(fig)
+
     pdf_pages.savefig(fig, facecolor=WARP_WHITE)
     plt.close()
 
@@ -869,6 +890,9 @@ try:
         fig.text(0.5, 0.5, 'No pickup delay codes found',
                  ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
+    # Add logo footer
+    add_logo_footer(fig)
+
     pdf_pages.savefig(fig, facecolor=WARP_WHITE)
     plt.close()
 
@@ -946,6 +970,9 @@ try:
                     table[(i, j)].set_linewidth(0.5)
                     # Enable text wrapping for all cells
                     table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_TEXT)
+
+            # Add logo footer
+            add_logo_footer(fig)
 
             pdf_pages.savefig(fig, facecolor=WARP_WHITE)
             plt.close()
@@ -1061,6 +1088,9 @@ try:
         fig.text(0.5, 0.5, 'No delivery delay codes found',
                  ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
+    # Add logo footer
+    add_logo_footer(fig)
+
     pdf_pages.savefig(fig, facecolor=WARP_WHITE)
     plt.close()
 
@@ -1138,6 +1168,9 @@ try:
                     table[(i, j)].set_linewidth(0.5)
                     # Enable text wrapping for all cells
                     table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_TEXT)
+
+            # Add logo footer
+            add_logo_footer(fig)
 
             pdf_pages.savefig(fig, facecolor=WARP_WHITE)
             plt.close()

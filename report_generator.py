@@ -383,6 +383,18 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
         else:
             return '#FFB366'  # Light orange (slightly below)
 
+    # Helper function to add logo footer to each page
+    def add_logo_footer(fig):
+        """Add Warp logo as a small footer to the page"""
+        try:
+            logo = plt.imread('warp_logo.png')
+            # Create axes for logo positioning (centered, bottom of page, smaller)
+            ax_logo = fig.add_axes([0.42, 0.02, 0.16, 0.06])  # [left, bottom, width, height]
+            ax_logo.imshow(logo)
+            ax_logo.axis('off')
+        except Exception as e:
+            print(f"⚠️  Warning: Could not load logo footer: {e}")
+
     # Create PDF in memory
     buffer = io.BytesIO()
     pdf_pages = PdfPages(buffer)
@@ -427,7 +439,7 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
         # Add rows
         for metric_name, metric_key in [('Shipments', 'Shipments'), ('Routes', 'Routes'),
                                          ('OTP %\n(Target 98.5%)', 'OTP %'),
-                                         ('OTD %\n(Target 99.9%)', 'OTD %'),
+                                         ('OTD %\n(Target 98.0%)', 'OTD %'),
                                          ('Tracking %\n(Target 100%)', 'Tracking %')]:
             row = [metric_name]
             for week in weeks:
@@ -490,6 +502,15 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
 
         fig.text(0.5, 0.82, carrier_name,
                  ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
+
+        # Add footnotes
+        fig.text(0.5, 0.15, '*OTP: Driver arrived after scheduled pickup window',
+                 ha='center', fontsize=9, color=WARP_TEXT)
+        fig.text(0.5, 0.12, '*OTD: Driver arrived after scheduled dropoff window',
+                 ha='center', fontsize=9, color=WARP_TEXT)
+
+        # Add logo footer
+        add_logo_footer(fig)
 
         pdf_pages.savefig(fig, facecolor=WARP_WHITE)
         plt.close()
@@ -602,6 +623,9 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
             fig.text(0.5, 0.5, 'No pickup delay codes found',
                      ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
+        # Add logo footer
+        add_logo_footer(fig)
+
         pdf_pages.savefig(fig, facecolor=WARP_WHITE)
         plt.close()
 
@@ -700,6 +724,9 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                         table[(i, j)].set_edgecolor(WARP_BORDER)
                         table[(i, j)].set_linewidth(0.5)
                         table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_TEXT)
+
+                # Add logo footer
+                add_logo_footer(fig)
 
                 pdf_pages.savefig(fig, facecolor=WARP_WHITE)
                 plt.close()
@@ -812,6 +839,9 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
             fig.text(0.5, 0.5, 'No delivery delay codes found',
                      ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
+        # Add logo footer
+        add_logo_footer(fig)
+
         pdf_pages.savefig(fig, facecolor=WARP_WHITE)
         plt.close()
 
@@ -910,6 +940,9 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                         table[(i, j)].set_edgecolor(WARP_BORDER)
                         table[(i, j)].set_linewidth(0.5)
                         table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_TEXT)
+
+                # Add logo footer
+                add_logo_footer(fig)
 
                 pdf_pages.savefig(fig, facecolor=WARP_WHITE)
                 plt.close()
