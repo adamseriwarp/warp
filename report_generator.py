@@ -281,6 +281,118 @@ def calculate_performance_metrics(df, carrier_name, weeks):
 
     return carrier_result_df
 
+def generate_pickup_details_csv(df):
+    """
+    Generate CSV export for pickup details including both delayed and on-time shipments
+
+    Returns:
+        CSV string with all pickup details
+    """
+    # Filter for successful pickups with deduplication
+    pickup_data = df[(df['pickStatus'] == 'Succeeded') &
+                     (df['keep_for_pickup'] == True)].copy()
+
+    if len(pickup_data) == 0:
+        return None
+
+    # Format pickup window
+    def format_pickup_window(row):
+        from_str = str(row['pickWindowFrom'])
+        to_str = str(row['pickWindowTo'])
+        if ' ' in from_str and ' ' in to_str:
+            from_date, from_time = from_str.split(' ', 1)
+            to_date, to_time = to_str.split(' ', 1)
+            if from_date == to_date:
+                return f"{from_date} {from_time} - {to_time}"
+        return f"{from_str} - {to_str}"
+
+    pickup_data['Pickup Window'] = pickup_data.apply(format_pickup_window, axis=1)
+    pickup_data['Lane'] = (
+        pickup_data['pickCity'].fillna('') + ', ' +
+        pickup_data['pickState'].fillna('') + ' > ' +
+        pickup_data['dropCity'].fillna('') + ', ' +
+        pickup_data['dropState'].fillna('')
+    )
+
+    # Create status column (On-Time or delay code)
+    pickup_data['Status'] = pickup_data.apply(
+        lambda row: row['pickupDelayCode'] if pd.notna(row['pickupDelayCode']) and row['pickupDelayCode'] != '' else 'On-Time',
+        axis=1
+    )
+
+    # Select and rename columns for export
+    export_df = pickup_data[[
+        'orderCode', 'Status', 'Lane', 'Pickup Window',
+        'pickTimeDeparted', 'pickTimeArrived', 'isTracking', 'OTP'
+    ]].copy()
+
+    export_df.columns = [
+        'Order Code', 'Pickup Status', 'Lane', 'Pickup Window',
+        'Pick Departed', 'Pick Arrived', 'Tracking', 'OTP Result'
+    ]
+
+    # Sort by status (delays first, then on-time)
+    export_df['sort_key'] = export_df['Pickup Status'].apply(lambda x: 0 if x != 'On-Time' else 1)
+    export_df = export_df.sort_values('sort_key').drop('sort_key', axis=1)
+
+    return export_df.to_csv(index=False)
+
+def generate_delivery_details_csv(df):
+    """
+    Generate CSV export for delivery details including both delayed and on-time shipments
+
+    Returns:
+        CSV string with all delivery details
+    """
+    # Filter for successful deliveries with deduplication
+    delivery_data = df[(df['dropStatus'] == 'Succeeded') &
+                       (df['keep_for_delivery'] == True)].copy()
+
+    if len(delivery_data) == 0:
+        return None
+
+    # Format drop window
+    def format_drop_window(row):
+        from_str = str(row['dropWindowFrom'])
+        to_str = str(row['dropWindowTo'])
+        if ' ' in from_str and ' ' in to_str:
+            from_date, from_time = from_str.split(' ', 1)
+            to_date, to_time = to_str.split(' ', 1)
+            if from_date == to_date:
+                return f"{from_date} {from_time} - {to_time}"
+        return f"{from_str} - {to_str}"
+
+    delivery_data['Drop Window'] = delivery_data.apply(format_drop_window, axis=1)
+    delivery_data['Lane'] = (
+        delivery_data['pickCity'].fillna('') + ', ' +
+        delivery_data['pickState'].fillna('') + ' > ' +
+        delivery_data['dropCity'].fillna('') + ', ' +
+        delivery_data['dropState'].fillna('')
+    )
+
+    # Create status column (On-Time or delay code)
+    delivery_data['Status'] = delivery_data.apply(
+        lambda row: row['deliveryDelayCode'] if pd.notna(row['deliveryDelayCode']) and row['deliveryDelayCode'] != '' else 'On-Time',
+        axis=1
+    )
+
+    # Select and rename columns for export
+    export_df = delivery_data[[
+        'orderCode', 'Status', 'Lane', 'Drop Window',
+        'dropTimeDeparted', 'dropTimeArrived', 'isTracking', 'OTD'
+    ]].copy()
+
+    export_df.columns = [
+        'Order Code', 'Delivery Status', 'Lane', 'Drop Window',
+        'Drop Departed', 'Drop Arrived', 'Tracking', 'OTD Result'
+    ]
+
+    # Sort by status (delays first, then on-time)
+    export_df['sort_key'] = export_df['Delivery Status'].apply(lambda x: 0 if x != 'On-Time' else 1)
+    export_df = export_df.sort_values('sort_key').drop('sort_key', axis=1)
+
+    return export_df.to_csv(index=False)
+
 def analyze_delay_codes(df, carrier_name, weeks):
     """
     Analyze delay codes for pickup and delivery

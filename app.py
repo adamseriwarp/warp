@@ -189,7 +189,9 @@ if generate_button:
         load_and_process_data,
         calculate_performance_metrics,
         analyze_delay_codes,
-        generate_pdf_report
+        generate_pdf_report,
+        generate_pickup_details_csv,
+        generate_delivery_details_csv
     )
     
     try:
@@ -219,20 +221,85 @@ if generate_button:
         
         # Display results
         st.success(f"✅ Report generated for **{selected_carrier}** - Weeks {selected_weeks}")
-        
+
+        # Debug: Show data info
+        st.info(f"📊 Loaded {len(df)} rows of data")
+
         # Show metrics preview
         st.subheader("📊 Performance Metrics Preview")
         st.dataframe(metrics_df, use_container_width=True)
-        
-        # Download button
-        st.download_button(
-            label="📥 Download PDF Report",
-            data=pdf_bytes,
-            file_name=f"carrier_report_{selected_carrier.replace(' ', '_')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-        
+
+        # Download buttons section
+        st.subheader("📥 Download Options")
+
+        # PDF Download
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.download_button(
+                label="📄 Download PDF Report",
+                data=pdf_bytes,
+                file_name=f"carrier_report_{selected_carrier.replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+        # CSV Downloads
+        with col2:
+            pickup_csv = generate_pickup_details_csv(df)
+            if pickup_csv:
+                st.download_button(
+                    label="📊 Pickup Details CSV",
+                    data=pickup_csv,
+                    file_name=f"pickup_details_{selected_carrier.replace(' ', '_')}_weeks_{'-'.join(map(str, selected_weeks))}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Includes both delayed and on-time pickups"
+                )
+            else:
+                st.info("No pickup data available")
+
+        with col3:
+            delivery_csv = generate_delivery_details_csv(df)
+            if delivery_csv:
+                st.download_button(
+                    label="📊 Delivery Details CSV",
+                    data=delivery_csv,
+                    file_name=f"delivery_details_{selected_carrier.replace(' ', '_')}_weeks_{'-'.join(map(str, selected_weeks))}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Includes both delayed and on-time deliveries"
+                )
+            else:
+                st.info("No delivery data available")
+
+        # Show CSV preview
+        st.subheader("📋 CSV Export Preview")
+
+        tab1, tab2 = st.tabs(["Pickup Details", "Delivery Details"])
+
+        with tab1:
+            if pickup_csv:
+                import io
+                preview_df = pd.read_csv(io.StringIO(pickup_csv))
+                st.info(f"Total pickups: {len(preview_df)} (includes both delayed and on-time)")
+                st.dataframe(preview_df.head(20), use_container_width=True)
+                if len(preview_df) > 20:
+                    st.caption(f"Showing first 20 of {len(preview_df)} rows. Download CSV for full data.")
+            else:
+                st.info("No pickup data available")
+
+        with tab2:
+            if delivery_csv:
+                import io
+                preview_df = pd.read_csv(io.StringIO(delivery_csv))
+                st.info(f"Total deliveries: {len(preview_df)} (includes both delayed and on-time)")
+                st.dataframe(preview_df.head(20), use_container_width=True)
+                if len(preview_df) > 20:
+                    st.caption(f"Showing first 20 of {len(preview_df)} rows. Download CSV for full data.")
+            else:
+                st.info("No delivery data available")
+
     except Exception as e:
         st.error(f"❌ Error generating report: {str(e)}")
         st.exception(e)
