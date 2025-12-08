@@ -29,8 +29,10 @@ def compute_col_widths(df, min_w=0.06, max_w=0.30):
     max_lens = []
     for col in df.columns:
         # Get max character count in column (including header)
+        # Handle newlines in column names by taking the longest line
+        col_name_len = max(len(line) for line in str(col).split('\n'))
         lens = df[col].astype(str).map(len)
-        max_lens.append(max(lens.max(), len(str(col))))
+        max_lens.append(max(lens.max(), col_name_len))
 
     # Calculate proportional widths
     total = sum(max_lens)
@@ -795,7 +797,7 @@ try:
 
         # Dynamic column widths based on actual content
         temp_df = pd.DataFrame(table_data[1:], columns=table_data[0])
-        col_widths = compute_col_widths(temp_df, min_w=0.10, max_w=0.70)
+        col_widths = compute_col_widths(temp_df, min_w=0.12, max_w=0.65)
         for i in range(len(table_data)):
             for j, width in enumerate(col_widths):
                 table[(i, j)].set_width(width)
@@ -987,7 +989,7 @@ try:
 
         # Dynamic column widths based on actual content
         temp_df = pd.DataFrame(table_data[1:], columns=table_data[0])
-        col_widths = compute_col_widths(temp_df, min_w=0.10, max_w=0.70)
+        col_widths = compute_col_widths(temp_df, min_w=0.12, max_w=0.65)
         for i in range(len(table_data)):
             for j, width in enumerate(col_widths):
                 table[(i, j)].set_width(width)
