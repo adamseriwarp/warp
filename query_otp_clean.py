@@ -359,8 +359,31 @@ carrier_delay_data = carrier_data[(carrier_data['deliveryDelayCode'].notna()) &
 carrier_delay_counts = carrier_delay_data['deliveryDelayCode'].value_counts().reset_index()
 carrier_delay_counts.columns = ['Delivery Delay Code', 'Count']
 
+# Calculate total delivery shipments and total routes for percentage calculations
+total_delivery_shipments = len(carrier_data[(carrier_data['dropStatus'] == 'Succeeded') &
+                                             (carrier_data['keep_for_delivery'] == True)])
+total_routes = carrier_data[carrier_data['loadStatus'] == 'Completed']['loadId'].nunique()
+
+# Add percentage columns
+carrier_delay_counts['% of Total Shipments'] = (carrier_delay_counts['Count'] / total_delivery_shipments * 100).round(1)
+carrier_delay_counts['% of Total Routes'] = (carrier_delay_counts['Count'] / total_routes * 100).round(1)
+
+# Add "On-Time" row for pie chart
+on_time_delivery_count = total_delivery_shipments - carrier_delay_counts['Count'].sum()
+on_time_delivery_pct = (on_time_delivery_count / total_delivery_shipments * 100).round(1)
+on_time_row = pd.DataFrame({
+    'Delivery Delay Code': ['On-Time'],
+    'Count': [on_time_delivery_count],
+    '% of Total Shipments': [on_time_delivery_pct],
+    '% of Total Routes': [(on_time_delivery_count / total_routes * 100).round(1)]
+})
+carrier_delay_counts_with_ontime = pd.concat([on_time_row, carrier_delay_counts], ignore_index=True)
+
 print(f"✅ Found {len(carrier_delay_data):,} shipments with delivery delay codes")
 print(f"   Unique delay codes: {len(carrier_delay_counts)}")
+print(f"   Total delivery shipments: {total_delivery_shipments:,}")
+print(f"   On-time deliveries: {on_time_delivery_count:,} ({on_time_delivery_pct:.1f}%)")
+print(f"   Total routes: {total_routes:,}")
 
 # ============================================================================
 # SECTION 3: PICKUP DELAY CODES
@@ -377,8 +400,30 @@ carrier_pickup_delay_data = carrier_data[(carrier_data['pickupDelayCode'].notna(
 carrier_pickup_delay_counts = carrier_pickup_delay_data['pickupDelayCode'].value_counts().reset_index()
 carrier_pickup_delay_counts.columns = ['Pickup Delay Code', 'Count']
 
+# Calculate total pickup shipments (use same total_routes from delivery section)
+total_pickup_shipments = len(carrier_data[(carrier_data['pickStatus'] == 'Succeeded') &
+                                          (carrier_data['keep_for_pickup'] == True)])
+
+# Add percentage columns
+carrier_pickup_delay_counts['% of Total Shipments'] = (carrier_pickup_delay_counts['Count'] / total_pickup_shipments * 100).round(1)
+carrier_pickup_delay_counts['% of Total Routes'] = (carrier_pickup_delay_counts['Count'] / total_routes * 100).round(1)
+
+# Add "On-Time" row for pie chart
+on_time_pickup_count = total_pickup_shipments - carrier_pickup_delay_counts['Count'].sum()
+on_time_pickup_pct = (on_time_pickup_count / total_pickup_shipments * 100).round(1)
+on_time_pickup_row = pd.DataFrame({
+    'Pickup Delay Code': ['On-Time'],
+    'Count': [on_time_pickup_count],
+    '% of Total Shipments': [on_time_pickup_pct],
+    '% of Total Routes': [(on_time_pickup_count / total_routes * 100).round(1)]
+})
+carrier_pickup_delay_counts_with_ontime = pd.concat([on_time_pickup_row, carrier_pickup_delay_counts], ignore_index=True)
+
 print(f"✅ Found {len(carrier_pickup_delay_data):,} shipments with pickup delay codes")
 print(f"   Unique delay codes: {len(carrier_pickup_delay_counts)}")
+print(f"   Total pickup shipments: {total_pickup_shipments:,}")
+print(f"   On-time pickups: {on_time_pickup_count:,} ({on_time_pickup_pct:.1f}%)")
+print(f"   Total routes: {total_routes:,}")
 
 # ============================================================================
 # SECTION 4: PREPARE DETAILED DELAY TABLES
@@ -416,9 +461,9 @@ if len(carrier_pickup_delay_data) > 0:
         'orderCode',
         'pickupDelayCode',
         'Lane',
+        'Pickup Window',
         'pickTimeDeparted',
         'pickTimeArrived',
-        'Pickup Window',
         'isTracking'
     ]].copy()
 
@@ -426,9 +471,9 @@ if len(carrier_pickup_delay_data) > 0:
         'Order Code',
         'Pickup Delay Code',
         'Lane',
+        'Pickup Window',
         'Pick Departed',
         'Pick Arrived',
-        'Pickup Window',
         'Tracking'
     ]
 else:
@@ -465,9 +510,9 @@ if len(carrier_delay_data) > 0:
         'orderCode',
         'deliveryDelayCode',
         'Lane',
+        'Drop Window',
         'dropTimeDeparted',
         'dropTimeArrived',
-        'Drop Window',
         'isTracking'
     ]].copy()
 
@@ -475,9 +520,9 @@ if len(carrier_delay_data) > 0:
         'Order Code',
         'Delivery Delay Code',
         'Lane',
+        'Drop Window',
         'Drop Departed',
         'Drop Arrived',
-        'Drop Window',
         'Tracking'
     ]
 else:
@@ -492,16 +537,18 @@ print("\n" + "=" * 80)
 print("GENERATING PDF REPORT")
 print("=" * 80)
 
-# Define WARP color scheme
-WARP_GREEN = '#00FF41'  # Neon green accent
-WARP_DARK = '#1A1A1A'   # Dark background
-WARP_GRAY = '#2D2D2D'   # Lighter gray for alternating rows
-WARP_WHITE = '#FFFFFF'  # White text/background
-WARP_BORDER = '#404040' # Border color
+# Define professional color scheme (White background theme)
+WARP_GREEN = '#2E7D32'  # Professional dark green accent
+WARP_DARK = '#1976D2'   # Professional blue for headers
+WARP_GRAY = '#F5F5F5'   # Light gray for alternating rows
+WARP_WHITE = '#FFFFFF'  # White background
+WARP_BORDER = '#BDBDBD' # Light gray border
+WARP_TEXT = '#212121'   # Dark text for readability
 
-# Define professional pie chart color palette (Dark Professional)
-PIE_COLORS = ['#4A90E2', '#7B68EE', '#50C878', '#F4A460', '#E57373', '#9575CD',
-              '#64B5F6', '#BA68C8', '#81C784', '#FFB74D']
+# Define professional pie chart color palette - Tableau Classic (Industry Standard)
+# Reordered: Coral Red first, Steel Blue 7th
+PIE_COLORS = ['#E15759', '#F28E2B', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1',
+              '#4E79A7', '#FF9DA7', '#9C755F', '#BAB0AC', '#A0CBE8', '#FFBE7D']
 
 # Create PDF
 pdf_pages = PdfPages(OUTPUT_PDF)
@@ -510,36 +557,74 @@ try:
     # ========================================================================
     # PAGE 1: TITLE PAGE
     # ========================================================================
-    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_DARK)
+    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_WHITE)
 
-    fig.text(0.5, 0.7, f'Carrier Performance Report',
-             ha='center', fontsize=24, fontweight='bold', color=WARP_GREEN)
-    fig.text(0.5, 0.6, f'{TARGET_CARRIER}',
-             ha='center', fontsize=20, fontweight='bold', color=WARP_WHITE)
-    fig.text(0.5, 0.5, f'Weeks {weeks[0]} & {weeks[1]}',
-             ha='center', fontsize=16, fontweight='bold', color=WARP_WHITE)
-    fig.text(0.5, 0.4, f'Generated: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}',
-             ha='center', fontsize=12, fontweight='bold', style='italic', color=WARP_WHITE)
+    # Add WARP logo at the top
+    try:
+        logo = plt.imread('/Users/adamseri/Desktop/Code/wearewarp/dashboard/warp_logo.png')
+        # Create axes for logo positioning (centered, top of page)
+        ax_logo = fig.add_axes([0.35, 0.70, 0.3, 0.2])  # [left, bottom, width, height]
+        ax_logo.imshow(logo)
+        ax_logo.axis('off')
+    except Exception as e:
+        print(f"⚠️  Warning: Could not load logo: {e}")
+
+    fig.text(0.5, 0.6, f'Carrier Performance Report',
+             ha='center', fontsize=24, fontweight='bold', color=WARP_DARK)
+    fig.text(0.5, 0.5, f'{TARGET_CARRIER}',
+             ha='center', fontsize=20, fontweight='bold', color=WARP_TEXT)
+    fig.text(0.5, 0.4, f'Weeks {weeks[0]} & {weeks[1]}',
+             ha='center', fontsize=16, fontweight='bold', color=WARP_TEXT)
+    fig.text(0.5, 0.3, f'Generated: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}',
+             ha='center', fontsize=12, fontweight='bold', style='italic', color=WARP_TEXT)
 
     plt.axis('off')
-    pdf_pages.savefig(fig, facecolor=WARP_DARK)
+    pdf_pages.savefig(fig, facecolor=WARP_WHITE)
     plt.close()
 
     # ========================================================================
     # PAGE 2: PERFORMANCE METRICS TABLE
     # ========================================================================
-    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_DARK)
+    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_WHITE)
 
     # Title
     fig.text(0.5, 0.92, 'Performance Metrics',
-             ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN)
+             ha='center', fontsize=18, fontweight='bold', color=WARP_DARK)
 
     # Create a more structured table layout
     ax = fig.add_subplot(111)
     ax.axis('off')
 
+    # Define color scheme function
+    def get_performance_color(value, target):
+        """
+        Returns color based on performance vs target.
+        Green if meets/exceeds target, gradient red->orange->yellow if below.
+        """
+        if pd.isna(value):
+            return WARP_WHITE
+
+        if value >= target:
+            return '#90EE90'  # Light green (meets target)
+
+        # Calculate how far below target (as percentage points)
+        gap = target - value
+
+        # Define color gradient based on gap severity
+        if gap >= 10:  # 10+ percentage points below
+            return '#FF4444'  # Bright red (very bad)
+        elif gap >= 5:  # 5-10 percentage points below
+            return '#FF6666'  # Red (bad)
+        elif gap >= 2:  # 2-5 percentage points below
+            return '#FF9966'  # Orange-red (concerning)
+        else:  # 0-2 percentage points below
+            return '#FFB366'  # Light orange (slightly below)
+
     # Prepare simplified table data - transpose for better readability
     table_data = []
+
+    # Store raw values for color coding
+    metrics_values = {}
 
     # Header
     table_data.append(['Metric', f'Week {weeks[0]}', f'Week {weeks[1]}'])
@@ -557,165 +642,88 @@ try:
                        f'{int(val_w1)}' if not pd.isna(val_w1) else '-'])
 
     # OTP %
-    val_w0 = carrier_result_df[('OTP %', f'W{weeks[0]}')].values[0]
-    val_w1 = carrier_result_df[('OTP %', f'W{weeks[1]}')].values[0]
-    table_data.append(['OTP %', f'{val_w0:.1f}%' if not pd.isna(val_w0) else '-',
-                       f'{val_w1:.1f}%' if not pd.isna(val_w1) else '-'])
+    otp_w0 = carrier_result_df[('OTP %', f'W{weeks[0]}')].values[0]
+    otp_w1 = carrier_result_df[('OTP %', f'W{weeks[1]}')].values[0]
+    metrics_values['OTP'] = [(otp_w0, 98.5), (otp_w1, 98.5)]
+    table_data.append(['OTP %\n(Target 98.5%)', f'{otp_w0:.1f}%' if not pd.isna(otp_w0) else '-',
+                       f'{otp_w1:.1f}%' if not pd.isna(otp_w1) else '-'])
 
     # OTD %
-    val_w0 = carrier_result_df[('OTD %', f'W{weeks[0]}')].values[0]
-    val_w1 = carrier_result_df[('OTD %', f'W{weeks[1]}')].values[0]
-    table_data.append(['OTD %', f'{val_w0:.1f}%' if not pd.isna(val_w0) else '-',
-                       f'{val_w1:.1f}%' if not pd.isna(val_w1) else '-'])
+    otd_w0 = carrier_result_df[('OTD %', f'W{weeks[0]}')].values[0]
+    otd_w1 = carrier_result_df[('OTD %', f'W{weeks[1]}')].values[0]
+    metrics_values['OTD'] = [(otd_w0, 99.9), (otd_w1, 99.9)]
+    table_data.append(['OTD %\n(Target 99.9%)', f'{otd_w0:.1f}%' if not pd.isna(otd_w0) else '-',
+                       f'{otd_w1:.1f}%' if not pd.isna(otd_w1) else '-'])
 
     # Tracking %
-    val_w0 = carrier_result_df[('Tracking %', f'W{weeks[0]}')].values[0]
-    val_w1 = carrier_result_df[('Tracking %', f'W{weeks[1]}')].values[0]
-    table_data.append(['Tracking %', f'{val_w0:.1f}%' if not pd.isna(val_w0) else '-',
-                       f'{val_w1:.1f}%' if not pd.isna(val_w1) else '-'])
+    track_w0 = carrier_result_df[('Tracking %', f'W{weeks[0]}')].values[0]
+    track_w1 = carrier_result_df[('Tracking %', f'W{weeks[1]}')].values[0]
+    metrics_values['Tracking'] = [(track_w0, 100.0), (track_w1, 100.0)]
+    table_data.append(['Tracking %\n(Target 100%)', f'{track_w0:.1f}%' if not pd.isna(track_w0) else '-',
+                       f'{track_w1:.1f}%' if not pd.isna(track_w1) else '-'])
 
     # Create table
     table = ax.table(cellText=table_data, cellLoc='center', loc='center',
-                     bbox=[0.2, 0.3, 0.6, 0.5])
+                     bbox=[0.2, 0.35, 0.6, 0.45])
     table.auto_set_font_size(False)
     table.set_fontsize(12)
     table.scale(1, 3)
 
-    # Style header row - WARP theme
+    # Style header row - professional theme
     for i in range(3):
         table[(0, i)].set_facecolor(WARP_DARK)
-        table[(0, i)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=13)
+        table[(0, i)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=13)
         table[(0, i)].set_edgecolor(WARP_BORDER)
         table[(0, i)].set_linewidth(2)
 
-    # Style metric column and add alternating row colors
+    # Style metric column and data cells with performance colors
     for i in range(1, len(table_data)):
         # Metric column (first column)
         table[(i, 0)].set_facecolor(WARP_DARK)
-        table[(i, 0)].set_text_props(weight='bold', color=WARP_GREEN)
+        # Use smaller font for rows with targets (OTP, OTD, Tracking)
+        if i >= 3:  # OTP %, OTD %, Tracking % rows
+            table[(i, 0)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=10)
+        else:  # Shipments, Routes rows
+            table[(i, 0)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=12)
         table[(i, 0)].set_edgecolor(WARP_BORDER)
         table[(i, 0)].set_linewidth(1.5)
 
-        # Data columns with alternating colors
-        row_color = WARP_GRAY if i % 2 == 0 else WARP_DARK
+        # Data columns with performance-based colors
         for j in range(1, 3):
-            table[(i, j)].set_facecolor(row_color)
-            table[(i, j)].set_text_props(weight='bold', color=WARP_WHITE)
+            # Default color for non-performance metrics
+            if i <= 2:  # Shipments and Routes rows
+                row_color = WARP_GRAY if i % 2 == 0 else WARP_WHITE
+                table[(i, j)].set_facecolor(row_color)
+            else:  # OTP, OTD, Tracking rows (i = 3, 4, 5)
+                # Get the metric name and values
+                metric_names = ['OTP', 'OTD', 'Tracking']
+                metric_idx = i - 3
+                metric_name = metric_names[metric_idx]
+
+                # Get value and target for this cell
+                value, target = metrics_values[metric_name][j - 1]
+                cell_color = get_performance_color(value, target)
+                table[(i, j)].set_facecolor(cell_color)
+
+            table[(i, j)].set_text_props(weight='bold', color=WARP_TEXT)
             table[(i, j)].set_edgecolor(WARP_BORDER)
             table[(i, j)].set_linewidth(1)
 
     # Add carrier name at top
     fig.text(0.5, 0.82, TARGET_CARRIER,
-             ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_WHITE)
+             ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
-    pdf_pages.savefig(fig, facecolor=WARP_DARK)
+    pdf_pages.savefig(fig, facecolor=WARP_WHITE)
     plt.close()
 
     # ========================================================================
-    # PAGE 3: DELIVERY DELAY CODES
+    # PAGE 3: PICKUP DELAY CODES (OTP)
     # ========================================================================
-    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_DARK)
-
-    # Title
-    fig.text(0.5, 0.95, 'Delivery Delay Codes',
-             ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN, transform=fig.transFigure)
-
-    if len(carrier_delay_counts) > 0:
-        # Create two subplots: table on left, pie chart on right
-        ax1 = plt.subplot(1, 2, 1)
-        ax1.axis('tight')
-        ax1.axis('off')
-
-        # Table
-        table_data = [['Delivery Delay Code', 'Count']]
-        for _, row in carrier_delay_counts.iterrows():
-            table_data.append([row['Delivery Delay Code'], str(row['Count'])])
-
-        table = ax1.table(cellText=table_data, cellLoc='left', loc='center',
-                         bbox=[0, 0.2, 1, 0.6])
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1, 2)
-
-        # Set column widths - wider for delay code column
-        for i in range(len(table_data)):
-            table[(i, 0)].set_width(0.75)  # Delay Code column - wider
-            table[(i, 1)].set_width(0.25)  # Count column - narrower
-
-        # Style header - WARP theme
-        table[(0, 0)].set_facecolor(WARP_DARK)
-        table[(0, 0)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=11)
-        table[(0, 0)].set_edgecolor(WARP_BORDER)
-        table[(0, 0)].set_linewidth(2)
-        table[(0, 1)].set_facecolor(WARP_DARK)
-        table[(0, 1)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=11)
-        table[(0, 1)].set_edgecolor(WARP_BORDER)
-        table[(0, 1)].set_linewidth(2)
-
-        # Style data rows with alternating colors
-        for i in range(1, len(table_data)):
-            row_color = WARP_GRAY if i % 2 == 0 else WARP_DARK
-            table[(i, 0)].set_facecolor(row_color)
-            table[(i, 0)].set_text_props(weight='bold', color=WARP_WHITE)
-            table[(i, 0)].set_edgecolor(WARP_BORDER)
-            table[(i, 0)].set_linewidth(1)
-            table[(i, 1)].set_facecolor(row_color)
-            table[(i, 1)].set_text_props(weight='bold', color=WARP_WHITE)
-            table[(i, 1)].set_edgecolor(WARP_BORDER)
-            table[(i, 1)].set_linewidth(1)
-            # Center-align the count column
-            table[(i, 1)].set_text_props(ha='center', weight='bold', color=WARP_WHITE)
-
-        # Pie chart
-        ax2 = plt.subplot(1, 2, 2)
-
-        def autopct_format(pct):
-            return f'{pct:.1f}%' if pct >= 5 else ''
-
-        wedges, texts, autotexts = ax2.pie(carrier_delay_counts['Count'],
-                                            autopct=autopct_format,
-                                            startangle=90,
-                                            colors=PIE_COLORS,
-                                            wedgeprops={'edgecolor': WARP_DARK, 'linewidth': 2})
-
-        # Style percentage text
-        for autotext in autotexts:
-            autotext.set_color('white')
-            autotext.set_fontsize(10)
-            autotext.set_weight('bold')
-
-        # Legend - positioned below the pie chart
-        ax2.legend(wedges, carrier_delay_counts['Delivery Delay Code'],
-                  title="Delay Codes",
-                  loc="upper center",
-                  bbox_to_anchor=(0.5, -0.05),
-                  fontsize=9,
-                  ncol=2,
-                  facecolor=WARP_DARK,
-                  edgecolor=WARP_BORDER,
-                  labelcolor=WARP_WHITE)
-
-        # Style legend title
-        legend = ax2.get_legend()
-        if legend:
-            legend.get_title().set_color(WARP_GREEN)
-            legend.get_title().set_fontsize(10)
-            legend.get_title().set_weight('bold')
-    else:
-        fig.text(0.5, 0.5, 'No delivery delay codes found',
-                 ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_WHITE)
-
-    pdf_pages.savefig(fig, facecolor=WARP_DARK)
-    plt.close()
-
-    # ========================================================================
-    # PAGE 4: PICKUP DELAY CODES
-    # ========================================================================
-    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_DARK)
+    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_WHITE)
 
     # Title
     fig.text(0.5, 0.95, 'Pickup Delay Codes',
-             ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN, transform=fig.transFigure)
+             ha='center', fontsize=18, fontweight='bold', color=WARP_DARK, transform=fig.transFigure)
 
     if len(carrier_pickup_delay_counts) > 0:
         # Create two subplots: table on left, pie chart on right
@@ -723,57 +731,68 @@ try:
         ax1.axis('tight')
         ax1.axis('off')
 
-        # Table
-        table_data = [['Pickup Delay Code', 'Count']]
+        # Table with 3 columns - removed % of Total Routes
+        table_data = [['Pickup\nDelay Code', 'Count', '% of Total\nShipments']]
         for _, row in carrier_pickup_delay_counts.iterrows():
-            table_data.append([row['Pickup Delay Code'], str(row['Count'])])
+            table_data.append([
+                row['Pickup Delay Code'],
+                str(row['Count']),
+                f"{row['% of Total Shipments']:.1f}%"
+            ])
+
+        # Dynamic bbox sizing based on number of rows
+        n_rows = len(table_data)  # includes header
+        row_height = 0.08  # height per row
+        max_height = 0.6   # maximum table height
+        bbox_height = min(max_height, row_height * n_rows)
+        bbox_y = 0.5 - bbox_height / 2  # center vertically
 
         table = ax1.table(cellText=table_data, cellLoc='left', loc='center',
-                         bbox=[0, 0.2, 1, 0.6])
+                         bbox=[0, bbox_y, 1, bbox_height])
         table.auto_set_font_size(False)
         table.set_fontsize(10)
-        table.scale(1, 2)
+        table.scale(1, 1)  # no artificial scaling
 
-        # Set column widths - wider for delay code column
+        # Set proper column widths - 3 columns now
         for i in range(len(table_data)):
-            table[(i, 0)].set_width(0.75)  # Delay Code column - wider
-            table[(i, 1)].set_width(0.25)  # Count column - narrower
+            table[(i, 0)].set_width(0.65)  # Delay Code column
+            table[(i, 1)].set_width(0.15)  # Count column
+            table[(i, 2)].set_width(0.23)  # % of Total Shipments
 
-        # Style header - WARP theme
-        table[(0, 0)].set_facecolor(WARP_DARK)
-        table[(0, 0)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=11)
-        table[(0, 0)].set_edgecolor(WARP_BORDER)
-        table[(0, 0)].set_linewidth(2)
-        table[(0, 1)].set_facecolor(WARP_DARK)
-        table[(0, 1)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=11)
-        table[(0, 1)].set_edgecolor(WARP_BORDER)
-        table[(0, 1)].set_linewidth(2)
+        # Style header - professional theme
+        for j in range(3):
+            table[(0, j)].set_facecolor(WARP_DARK)
+            table[(0, j)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=10, wrap=True, ha='center', va='center')
+            table[(0, j)].set_edgecolor(WARP_BORDER)
+            table[(0, j)].set_linewidth(2)
+            table[(0, j)].set_height(0.08)  # Increase header height to accommodate wrapped text
 
         # Style data rows with alternating colors
         for i in range(1, len(table_data)):
-            row_color = WARP_GRAY if i % 2 == 0 else WARP_DARK
-            table[(i, 0)].set_facecolor(row_color)
-            table[(i, 0)].set_text_props(weight='bold', color=WARP_WHITE)
-            table[(i, 0)].set_edgecolor(WARP_BORDER)
-            table[(i, 0)].set_linewidth(1)
-            table[(i, 1)].set_facecolor(row_color)
-            table[(i, 1)].set_text_props(weight='bold', color=WARP_WHITE)
-            table[(i, 1)].set_edgecolor(WARP_BORDER)
-            table[(i, 1)].set_linewidth(1)
-            # Center-align the count column
-            table[(i, 1)].set_text_props(ha='center', weight='bold', color=WARP_WHITE)
+            row_color = WARP_GRAY if i % 2 == 0 else WARP_WHITE
+            for j in range(3):
+                table[(i, j)].set_facecolor(row_color)
+                table[(i, j)].set_text_props(weight='bold', color=WARP_TEXT)
+                table[(i, j)].set_edgecolor(WARP_BORDER)
+                table[(i, j)].set_linewidth(1)
+                # Center-align count and percentage columns
+                if j > 0:
+                    table[(i, j)].set_text_props(ha='center', weight='bold', color=WARP_TEXT)
 
-        # Pie chart
+        # Pie chart (using data with On-Time included)
         ax2 = plt.subplot(1, 2, 2)
 
         def autopct_format(pct):
             return f'{pct:.1f}%' if pct >= 5 else ''
 
-        wedges, texts, autotexts = ax2.pie(carrier_pickup_delay_counts['Count'],
+        # Create color list: professional green for On-Time, then regular colors for delays
+        pie_colors_with_ontime = ['#4CAF50'] + PIE_COLORS[:len(carrier_pickup_delay_counts)]
+
+        wedges, texts, autotexts = ax2.pie(carrier_pickup_delay_counts_with_ontime['Count'],
                                             autopct=autopct_format,
                                             startangle=90,
-                                            colors=PIE_COLORS,
-                                            wedgeprops={'edgecolor': WARP_DARK, 'linewidth': 2})
+                                            colors=pie_colors_with_ontime,
+                                            wedgeprops={'edgecolor': WARP_WHITE, 'linewidth': 2})
 
         # Style percentage text
         for autotext in autotexts:
@@ -781,32 +800,37 @@ try:
             autotext.set_fontsize(10)
             autotext.set_weight('bold')
 
-        # Legend - positioned below the pie chart
-        ax2.legend(wedges, carrier_pickup_delay_counts['Pickup Delay Code'],
-                  title="Delay Codes",
+        # Add "Total Shipments" text above legend
+        ax2.text(0.5, -0.10, f'Total Shipments: {total_pickup_shipments}',
+                ha='center', va='top', fontsize=11, fontweight='bold',
+                color=WARP_TEXT, transform=ax2.transAxes)
+
+        # Legend - positioned below the "Total Shipments" text
+        ax2.legend(wedges, carrier_pickup_delay_counts_with_ontime['Pickup Delay Code'],
+                  title="Pickup Status",
                   loc="upper center",
-                  bbox_to_anchor=(0.5, -0.05),
+                  bbox_to_anchor=(0.5, -0.20),
                   fontsize=9,
                   ncol=2,
-                  facecolor=WARP_DARK,
+                  facecolor=WARP_WHITE,
                   edgecolor=WARP_BORDER,
-                  labelcolor=WARP_WHITE)
+                  labelcolor=WARP_TEXT)
 
         # Style legend title
         legend = ax2.get_legend()
         if legend:
-            legend.get_title().set_color(WARP_GREEN)
+            legend.get_title().set_color(WARP_DARK)
             legend.get_title().set_fontsize(10)
             legend.get_title().set_weight('bold')
     else:
         fig.text(0.5, 0.5, 'No pickup delay codes found',
-                 ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_WHITE)
+                 ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
-    pdf_pages.savefig(fig, facecolor=WARP_DARK)
+    pdf_pages.savefig(fig, facecolor=WARP_WHITE)
     plt.close()
 
     # ========================================================================
-    # PAGE 5+: PICKUP DELAY DETAILS TABLE (PAGINATED)
+    # PAGE 4: PICKUP DELAY DETAILS (OTP)
     # ========================================================================
     if pickup_delay_details is not None and len(pickup_delay_details) > 0:
         # Pagination settings
@@ -819,18 +843,18 @@ try:
             end_idx = min(start_idx + rows_per_page, total_rows)
             display_data = pickup_delay_details.iloc[start_idx:end_idx]
 
-            fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_DARK)
+            fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_WHITE)
 
             # Title with page number
             if total_pages > 1:
                 fig.text(0.5, 0.95, f'Pickup Delay Details - Page {page_num + 1} of {total_pages}',
-                         ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN, transform=fig.transFigure)
+                         ha='center', fontsize=18, fontweight='bold', color=WARP_DARK, transform=fig.transFigure)
             else:
                 fig.text(0.5, 0.95, 'Pickup Delay Details',
-                         ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN, transform=fig.transFigure)
+                         ha='center', fontsize=18, fontweight='bold', color=WARP_DARK, transform=fig.transFigure)
 
             fig.text(0.5, 0.92, f'(Showing records {start_idx + 1}-{end_idx} of {total_rows} total)',
-                     ha='center', fontsize=10, fontweight='bold', style='italic', color=WARP_WHITE, transform=fig.transFigure)
+                     ha='center', fontsize=10, fontweight='bold', style='italic', color=WARP_TEXT, transform=fig.transFigure)
 
             ax = fig.add_subplot(111)
             ax.axis('tight')
@@ -853,17 +877,17 @@ try:
             table.scale(1, 1.2)
 
             # Set custom column widths to prevent text cutoff
-            # Columns: Order Code, Pickup Delay Code, Lane,
-            #          Pick Departed, Pick Arrived, Pickup Window, Tracking
-            col_widths = [0.11, 0.14, 0.24, 0.13, 0.13, 0.18, 0.07]
+            # Columns: Order Code, Pickup Delay Code, Lane, Pickup Window,
+            #          Pick Departed, Pick Arrived, Tracking
+            col_widths = [0.11, 0.14, 0.24, 0.18, 0.13, 0.13, 0.07]
             for i, width in enumerate(col_widths):
                 for j in range(len(table_data)):
                     table[(j, i)].set_width(width)
 
-            # Style header row - WARP theme
+            # Style header row - professional theme
             for i in range(len(display_data.columns)):
                 table[(0, i)].set_facecolor(WARP_DARK)
-                table[(0, i)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=7, wrap=True, ha='center', va='center')
+                table[(0, i)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=7, wrap=True, ha='center', va='center')
                 table[(0, i)].set_edgecolor(WARP_BORDER)
                 table[(0, i)].set_linewidth(1.5)
 
@@ -873,19 +897,132 @@ try:
 
             # Style data rows with alternating colors
             for i in range(1, len(table_data)):
-                row_color = WARP_GRAY if i % 2 == 0 else WARP_DARK
+                row_color = WARP_GRAY if i % 2 == 0 else WARP_WHITE
                 for j in range(len(display_data.columns)):
                     table[(i, j)].set_facecolor(row_color)
                     table[(i, j)].set_edgecolor(WARP_BORDER)
                     table[(i, j)].set_linewidth(0.5)
                     # Enable text wrapping for all cells
-                    table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_WHITE)
+                    table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_TEXT)
 
-            pdf_pages.savefig(fig, facecolor=WARP_DARK)
+            pdf_pages.savefig(fig, facecolor=WARP_WHITE)
             plt.close()
 
     # ========================================================================
-    # PAGE 6+: DELIVERY DELAY DETAILS TABLE (PAGINATED)
+    # PAGE 5: DELIVERY DELAY CODES (OTD)
+    # ========================================================================
+    fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_WHITE)
+
+    # Title
+    fig.text(0.5, 0.95, 'Delivery Delay Codes',
+             ha='center', fontsize=18, fontweight='bold', color=WARP_DARK, transform=fig.transFigure)
+
+    if len(carrier_delay_counts) > 0:
+        # Create two subplots: table on left, pie chart on right
+        ax1 = plt.subplot(1, 2, 1)
+        ax1.axis('tight')
+        ax1.axis('off')
+
+        # Table with 3 columns - removed % of Total Routes
+        table_data = [['Delivery\nDelay Code', 'Count', '% of Total\nShipments']]
+        for _, row in carrier_delay_counts.iterrows():
+            table_data.append([
+                row['Delivery Delay Code'],
+                str(row['Count']),
+                f"{row['% of Total Shipments']:.1f}%"
+            ])
+
+        # Dynamic bbox sizing based on number of rows
+        n_rows = len(table_data)  # includes header
+        row_height = 0.08  # height per row
+        max_height = 0.6   # maximum table height
+        bbox_height = min(max_height, row_height * n_rows)
+        bbox_y = 0.5 - bbox_height / 2  # center vertically
+
+        table = ax1.table(cellText=table_data, cellLoc='left', loc='center',
+                         bbox=[0, bbox_y, 1, bbox_height])
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+        table.scale(1, 1)  # no artificial scaling
+
+        # Set proper column widths - 3 columns now
+        for i in range(len(table_data)):
+            table[(i, 0)].set_width(0.65)  # Delay Code column
+            table[(i, 1)].set_width(0.15)  # Count column
+            table[(i, 2)].set_width(0.23)  # % of Total Shipments
+
+        # Style header - professional theme
+        for j in range(3):
+            table[(0, j)].set_facecolor(WARP_DARK)
+            table[(0, j)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=10, wrap=True, ha='center', va='center')
+            table[(0, j)].set_edgecolor(WARP_BORDER)
+            table[(0, j)].set_linewidth(2)
+            table[(0, j)].set_height(0.08)  # Increase header height to accommodate wrapped text
+
+        # Style data rows with alternating colors
+        for i in range(1, len(table_data)):
+            row_color = WARP_GRAY if i % 2 == 0 else WARP_WHITE
+            for j in range(3):
+                table[(i, j)].set_facecolor(row_color)
+                table[(i, j)].set_text_props(weight='bold', color=WARP_TEXT)
+                table[(i, j)].set_edgecolor(WARP_BORDER)
+                table[(i, j)].set_linewidth(1)
+                # Center-align count and percentage columns
+                if j > 0:
+                    table[(i, j)].set_text_props(ha='center', weight='bold', color=WARP_TEXT)
+
+        # Pie chart (using data with On-Time included)
+        ax2 = plt.subplot(1, 2, 2)
+
+        def autopct_format(pct):
+            return f'{pct:.1f}%' if pct >= 5 else ''
+
+        # Create color list: professional green for On-Time, then regular colors for delays
+        pie_colors_with_ontime = ['#4CAF50'] + PIE_COLORS[:len(carrier_delay_counts)]
+
+        wedges, texts, autotexts = ax2.pie(carrier_delay_counts_with_ontime['Count'],
+                                            autopct=autopct_format,
+                                            startangle=90,
+                                            colors=pie_colors_with_ontime,
+                                            wedgeprops={'edgecolor': WARP_WHITE, 'linewidth': 2})
+
+        # Style percentage text
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontsize(10)
+            autotext.set_weight('bold')
+
+        # Add "Total Shipments" text above legend
+        ax2.text(0.5, -0.10, f'Total Shipments: {total_delivery_shipments}',
+                ha='center', va='top', fontsize=11, fontweight='bold',
+                color=WARP_TEXT, transform=ax2.transAxes)
+
+        # Legend - positioned below the "Total Shipments" text
+        ax2.legend(wedges, carrier_delay_counts_with_ontime['Delivery Delay Code'],
+                  title="Delivery Status",
+                  loc="upper center",
+                  bbox_to_anchor=(0.5, -0.20),
+                  fontsize=9,
+                  ncol=2,
+                  facecolor=WARP_WHITE,
+                  edgecolor=WARP_BORDER,
+                  labelcolor=WARP_TEXT)
+
+        # Style legend title
+        legend = ax2.get_legend()
+        if legend:
+            legend.get_title().set_color(WARP_DARK)
+            legend.get_title().set_fontsize(10)
+            legend.get_title().set_weight('bold')
+    else:
+        fig.text(0.5, 0.5, 'No delivery delay codes found',
+                 ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
+
+    pdf_pages.savefig(fig, facecolor=WARP_WHITE)
+    plt.close()
+
+    # ========================================================================
+    # PAGE 6+: DELIVERY DELAY DETAILS TABLE (OTD - PAGINATED)
     # ========================================================================
     if delivery_delay_details is not None and len(delivery_delay_details) > 0:
         # Pagination settings
@@ -898,18 +1035,18 @@ try:
             end_idx = min(start_idx + rows_per_page, total_rows)
             display_data = delivery_delay_details.iloc[start_idx:end_idx]
 
-            fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_DARK)
+            fig = plt.figure(figsize=(11, 8.5), facecolor=WARP_WHITE)
 
             # Title with page number
             if total_pages > 1:
                 fig.text(0.5, 0.95, f'Delivery Delay Details - Page {page_num + 1} of {total_pages}',
-                         ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN, transform=fig.transFigure)
+                         ha='center', fontsize=18, fontweight='bold', color=WARP_DARK, transform=fig.transFigure)
             else:
                 fig.text(0.5, 0.95, 'Delivery Delay Details',
-                         ha='center', fontsize=18, fontweight='bold', color=WARP_GREEN, transform=fig.transFigure)
+                         ha='center', fontsize=18, fontweight='bold', color=WARP_DARK, transform=fig.transFigure)
 
             fig.text(0.5, 0.92, f'(Showing records {start_idx + 1}-{end_idx} of {total_rows} total)',
-                     ha='center', fontsize=10, fontweight='bold', style='italic', color=WARP_WHITE, transform=fig.transFigure)
+                     ha='center', fontsize=10, fontweight='bold', style='italic', color=WARP_TEXT, transform=fig.transFigure)
 
             ax = fig.add_subplot(111)
             ax.axis('tight')
@@ -921,42 +1058,46 @@ try:
                 table_data.append([str(val) if not pd.isna(val) else '' for val in row])
 
             # Create table
+            # Adjust bbox height based on number of rows to prevent oversized headers
+            num_rows = len(table_data)
+            bbox_height = min(0.85, 0.1 + (num_rows * 0.05))  # Dynamic height based on row count
+            bbox_y = 0.85 - bbox_height  # Position from top
             table = ax.table(cellText=table_data, cellLoc='left', loc='center',
-                            bbox=[0, 0, 1, 0.85])
+                            bbox=[0, bbox_y, 1, bbox_height])
             table.auto_set_font_size(False)
             table.set_fontsize(5.5)
             table.scale(1, 1.2)
 
             # Set custom column widths to prevent text cutoff
-            # Columns: Order Code, Delivery Delay Code, Lane,
-            #          Drop Departed, Drop Arrived, Drop Window, Tracking
-            col_widths = [0.11, 0.14, 0.24, 0.13, 0.13, 0.18, 0.07]
+            # Columns: Order Code, Delivery Delay Code, Lane, Drop Window,
+            #          Drop Departed, Drop Arrived, Tracking
+            col_widths = [0.11, 0.14, 0.24, 0.18, 0.13, 0.13, 0.07]
             for i, width in enumerate(col_widths):
                 for j in range(len(table_data)):
                     table[(j, i)].set_width(width)
 
-            # Style header row - WARP theme
+            # Style header row - professional theme
             for i in range(len(display_data.columns)):
                 table[(0, i)].set_facecolor(WARP_DARK)
-                table[(0, i)].set_text_props(weight='bold', color=WARP_GREEN, fontsize=7, wrap=True, ha='center', va='center')
+                table[(0, i)].set_text_props(weight='bold', color=WARP_WHITE, fontsize=7, wrap=True, ha='center', va='center')
                 table[(0, i)].set_edgecolor(WARP_BORDER)
                 table[(0, i)].set_linewidth(1.5)
 
             # Set header height to allow for wrapped text
             for i in range(len(display_data.columns)):
-                table[(0, i)].set_height(0.06)
+                table[(0, i)].set_height(0.04)
 
             # Style data rows with alternating colors
             for i in range(1, len(table_data)):
-                row_color = WARP_GRAY if i % 2 == 0 else WARP_DARK
+                row_color = WARP_GRAY if i % 2 == 0 else WARP_WHITE
                 for j in range(len(display_data.columns)):
                     table[(i, j)].set_facecolor(row_color)
                     table[(i, j)].set_edgecolor(WARP_BORDER)
                     table[(i, j)].set_linewidth(0.5)
                     # Enable text wrapping for all cells
-                    table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_WHITE)
+                    table[(i, j)].set_text_props(wrap=True, weight='bold', color=WARP_TEXT)
 
-            pdf_pages.savefig(fig, facecolor=WARP_DARK)
+            pdf_pages.savefig(fig, facecolor=WARP_WHITE)
             plt.close()
 
     print(f"\n✅ PDF report generated successfully!")

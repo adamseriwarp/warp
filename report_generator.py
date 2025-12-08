@@ -446,13 +446,6 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                 table[(i, j)].set_edgecolor(WARP_BORDER)
                 table[(i, j)].set_linewidth(1)
 
-        # Add color legend at bottom
-        legend_y = 0.15
-        fig.text(0.5, legend_y, 'Performance Color Legend:',
-                ha='center', fontsize=10, fontweight='bold', color=WARP_DARK)
-        fig.text(0.5, legend_y - 0.03, '🟢 Meets/Exceeds Target  |  🟠 0-2% Below  |  🟠 2-5% Below  |  🔴 5-10% Below  |  🔴 10+% Below',
-                ha='center', fontsize=8, color=WARP_TEXT)
-
         fig.text(0.5, 0.82, carrier_name,
                  ha='center', fontsize=14, fontweight='bold', style='italic', color=WARP_TEXT)
 
