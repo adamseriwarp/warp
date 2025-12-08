@@ -14,6 +14,39 @@ import io
 import streamlit as st
 
 # ============================================================================
+# DYNAMIC COLUMN WIDTH CALCULATION
+# ============================================================================
+
+def compute_col_widths(df, min_w=0.06, max_w=0.30):
+    """
+    Automatically compute optimal column widths based on actual text length.
+
+    Args:
+        df: DataFrame with the data to display
+        min_w: Minimum width for any column (default 6%)
+        max_w: Maximum width for any column (default 30%)
+
+    Returns:
+        List of column widths that sum to 1.0
+    """
+    max_lens = []
+    for col in df.columns:
+        # Get max character count in column (including header)
+        lens = df[col].astype(str).map(len)
+        max_lens.append(max(lens.max(), len(str(col))))
+
+    # Calculate proportional widths
+    total = sum(max_lens)
+    widths = [l/total for l in max_lens]
+
+    # Apply min/max constraints
+    widths = [min(max(w, min_w), max_w) for w in widths]
+
+    # Renormalize to sum to 1.0
+    s = sum(widths)
+    return [w/s for w in widths]
+
+# ============================================================================
 # DATABASE CONNECTION
 # ============================================================================
 
@@ -410,6 +443,13 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
         table.set_fontsize(12)
         table.scale(1, 3)
 
+        # Dynamic column widths based on actual content
+        temp_df = pd.DataFrame(table_data[1:], columns=table_data[0])
+        col_widths = compute_col_widths(temp_df, min_w=0.15, max_w=0.50)
+        for i in range(len(table_data)):
+            for j, width in enumerate(col_widths):
+                table[(i, j)].set_width(width)
+
         # Style header
         for i in range(len(table_data[0])):
             table[(0, i)].set_facecolor(WARP_DARK)
@@ -488,11 +528,13 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
             table.set_fontsize(10)
             table.scale(1, 1)
 
-            # Column widths
+            # Dynamic column widths based on actual content
+            # Create temp DataFrame for width calculation
+            temp_df = pd.DataFrame(table_data[1:], columns=table_data[0])
+            col_widths = compute_col_widths(temp_df, min_w=0.10, max_w=0.70)
             for i in range(len(table_data)):
-                table[(i, 0)].set_width(0.65)
-                table[(i, 1)].set_width(0.15)
-                table[(i, 2)].set_width(0.23)
+                for j, width in enumerate(col_widths):
+                    table[(i, j)].set_width(width)
 
             # Style header
             for j in range(3):
@@ -634,8 +676,8 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                 table.set_fontsize(5.5)
                 table.scale(1, 1.2)
 
-                # Column widths: Order Code, Pickup Delay Code, Lane, Pickup Window, Pick Departed, Pick Arrived, Tracking
-                col_widths = [0.10, 0.15, 0.20, 0.19, 0.12, 0.17, 0.07]
+                # Dynamic column widths based on actual content
+                col_widths = compute_col_widths(display_data)
                 for i, width in enumerate(col_widths):
                     for j in range(len(table_data)):
                         table[(j, i)].set_width(width)
@@ -696,11 +738,13 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
             table.set_fontsize(10)
             table.scale(1, 1)
 
-            # Column widths
+            # Dynamic column widths based on actual content
+            # Create temp DataFrame for width calculation
+            temp_df = pd.DataFrame(table_data[1:], columns=table_data[0])
+            col_widths = compute_col_widths(temp_df, min_w=0.10, max_w=0.70)
             for i in range(len(table_data)):
-                table[(i, 0)].set_width(0.65)
-                table[(i, 1)].set_width(0.15)
-                table[(i, 2)].set_width(0.23)
+                for j, width in enumerate(col_widths):
+                    table[(i, j)].set_width(width)
 
             # Style header
             for j in range(3):
@@ -842,8 +886,8 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                 table.set_fontsize(5.5)
                 table.scale(1, 1.2)
 
-                # Column widths: Order Code, Delivery Delay Code, Lane, Drop Window, Drop Departed, Drop Arrived, Tracking
-                col_widths = [0.10, 0.15, 0.20, 0.19, 0.12, 0.17, 0.07]
+                # Dynamic column widths based on actual content
+                col_widths = compute_col_widths(display_data)
                 for i, width in enumerate(col_widths):
                     for j in range(len(table_data)):
                         table[(j, i)].set_width(width)
