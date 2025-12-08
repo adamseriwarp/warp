@@ -635,7 +635,7 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                 table.scale(1, 1.2)
 
                 # Column widths: Order Code, Pickup Delay Code, Lane, Pickup Window, Pick Departed, Pick Arrived, Tracking
-                col_widths = [0.10, 0.13, 0.22, 0.19, 0.12, 0.17, 0.07]
+                col_widths = [0.10, 0.15, 0.20, 0.19, 0.12, 0.17, 0.07]
                 for i, width in enumerate(col_widths):
                     for j in range(len(table_data)):
                         table[(j, i)].set_width(width)
@@ -843,7 +843,7 @@ def generate_pdf_report(df, carrier_name, weeks, metrics_df, delay_data):
                 table.scale(1, 1.2)
 
                 # Column widths: Order Code, Delivery Delay Code, Lane, Drop Window, Drop Departed, Drop Arrived, Tracking
-                col_widths = [0.10, 0.13, 0.22, 0.19, 0.12, 0.17, 0.07]
+                col_widths = [0.10, 0.15, 0.20, 0.19, 0.12, 0.17, 0.07]
                 for i, width in enumerate(col_widths):
                     for j in range(len(table_data)):
                         table[(j, i)].set_width(width)
